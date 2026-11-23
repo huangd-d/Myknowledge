@@ -8,6 +8,11 @@ description: 目录怎么分层、文件怎么命名、依赖方向与拆分决�
 
 ```
 src/
+  content/                      # 内容层：md / json / 图片，只有数据没有代码（见 §9）
+    <collection>/
+      _meta.json                # 合集标题/摘要/排序
+      <order>-<slug>.md         # 一篇文档一个文件
+
   app/                          # 装配层：只管"把这些东西连起来"
     main.ts
     App.vue
@@ -207,3 +212,57 @@ function onQueryChange(next: Partial<UserQuery>) {
 ## 8. 关于 barrel 文件（`index.ts` 重导出）
 
 不建议在 `features/` 和 `shared/` 里建 `index.ts` 统一导出：会造成循环依赖、拖慢 tree-shaking、IDE"跳转到定义"变成跳到 barrel。直接按真实路径 import，路径长一点但可读、可检查。脚本默认把 `features/*/index.ts` 报为错误（可用 `--allow-barrels` 关闭）。
+
+## 9. 三类资产：agent / 代码 / 内容
+
+一个仓库里通常同时躺着三种"看起来都是文件"的东西。边界一糊，最先坏的是可发布性。
+
+| 资产 | 位置 | 谁消费 | 进构建 |
+| --- | --- | --- | --- |
+| agent 资产 | `skills/`、`.claude/`、`.cursor/`、`AGENTS.md`、`prompts/` | 大模型、编辑器 | 否 |
+| 项目代码 | `src/**`（`content` 之外） | 浏览器 | 是 |
+| 项目内容 | `src/content/`、`src/assets/`、`public/` | 站点运行时 | 是 |
+| 构建脚本 | `scripts/`、`*.config.ts` | Node | 只在构建期 |
+
+判定口诀：**"删掉它，线上会不会变？"** 会 → 属于项目；不会 → 属于工具链。
+
+### 反模式：让页面去 glob 根目录的 skills
+
+```ts
+// ❌ skills/ 是 agent 资产，却被页面当成了内容
+const modules = import.meta.glob('../../../../skills/**/*.md', { query: '?raw', eager: true })
+```
+
+三个后果：
+
+1. `skills/` 被卷进构建，改一条规范就等于改线上页面；
+2. 清理或重命名 skills 会直接让构建失败，agent 资产的独立性没了；
+3. 内容作者和规范作者被绑在同一份文件上，谁都不敢动。
+
+### 正确形态
+
+```ts
+// ✅ 内容只来自 src/content，路径不出 src
+const DOCS = import.meta.glob('../../../content/**/*.md', { query: '?raw', eager: true })
+```
+
+```
+src/content/threejs/_meta.json         合集元信息：title / summary / order
+src/content/threejs/01-render-loop.md  一篇文档一个文件，数字前缀即顺序
+```
+
+### 迁移配方（把根目录内容搬进 src）
+
+1. `git mv skills/<合集> src/content/<合集>`，保留历史；
+2. 补 `_meta.json`，把原来写在代码里的分类标题/排序挪进来；
+3. 数据层 glob 前缀改成 `../../../content/`，删掉旧的根目录分支；
+4. 路由从 `/kb/:id` 升级成 `/kb/:collection/:slug`（有了合集就该有合集页）；
+5. 跑 `check:rules`，确认没有 `import-outside-src` / `glob-outside-src`。
+
+### 什么时候允许同一份文本两处出现
+
+几乎不允许。确实需要（既要给 agent 读、又要上站）时：**内容放 `src/content/`，用 npm script 或 vite 插件单向生成到 `skills/`**，并在 README 写明哪边是源。反向生成（skills → content）迟早分叉。
+
+### 新增顶层目录的门槛
+
+只有出现**新的圈层**才加顶层目录。以下都不是理由：文件变多了、想按类型分组、看起来更整齐。顶层目录越少越好，`src/` 里面才是组织的主战场。

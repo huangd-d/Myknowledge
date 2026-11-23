@@ -300,6 +300,8 @@ node scripts/check-frontend-rules.mjs src --allow-barrels
 | `naming/*` | 组件 PascalCase、composable `useXxx.ts`、其他 ts 小写 |
 | `architecture/feature-cross-import` | feature 之间禁止互相引用 |
 | `architecture/layer-violation` | `shared` 不得引用 `features`/`app`；`features` 不得引用 `app` |
+| `architecture/import-outside-src` | 相对 import 解析后落在 `src/` 之外（例如 `../../../../skills/x.md`） |
+| `architecture/glob-outside-src` | `import.meta.glob()` 的模式落到 `src/` 之外（把 agent 资产卷进构建） |
 | `architecture/barrel-file` | `features/*/index.ts` 报错（可用参数关闭） |
 | `component/single-component` | 一个 `.vue` 里出现多个 `<template>` |
 | `style/not-scoped` | 写了 `<style>` 但没 `scoped` |
@@ -308,6 +310,14 @@ node scripts/check-frontend-rules.mjs src --allow-barrels
 | `security/v-html` | 使用 `v-html`（info） |
 
 脚本退出码：有 `error` 时为 1，`warn`/`info` 只打印不影响退出码——**先让团队看到，再逐步收紧**。
+
+### 边界检查为什么重要
+
+`import-outside-src` 与 `glob-outside-src` 保护的是**发布边界**，不是代码风格：
+
+- 构建只应依赖 `src/` + 配置文件。一旦 `import.meta.glob('../../../skills/**')` 出现在 `src` 里，`skills/` 就成了隐式的构建输入，删它、改它、把它从仓库里挪走，都会让线上构建失败。
+- 这类越界很难在 review 里看出来，因为路径看起来只是"多几个点"。机器检查比人眼可靠。
+- 如果确实需要跨目录读取（monorepo 里的 `packages/content`），把它显式配置成 alias 并在构建配置里声明，而不是用相对路径一路 `../..`。
 
 ## 10. 例外机制（避免规范变教条）
 

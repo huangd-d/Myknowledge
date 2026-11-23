@@ -1,6 +1,6 @@
 # My Knowledge
 
-个人知识库 + 实验案例，Vue 3 + TypeScript + Vite，用路由划分模块。没有后端、没有数据库，内容全部来自仓库里的 Markdown 和 `src/features` 下的代码。
+个人知识库 + 实验案例，Vue 3 + TypeScript + Vite，用路由划分模块。没有后端、没有数据库：知识库内容来自 `src/content/**/*.md`，案例来自 `src/features/cases/demos/`。
 
 ## 快速开始
 
@@ -31,56 +31,91 @@ npm run verify:full  # 再加上 oxlint 与格式检查，CI 用
 | 路由 | 页面 | 说明 |
 | --- | --- | --- |
 | `/` | 工作台 | 统计、入口、最近文档、怎么加内容 |
-| `/kb` | 知识库索引 | 分类分组 + 关键词检索 |
-| `/kb/:id` | 文档详情 | Markdown 渲染 + 文内目录 |
+| `/kb` | 知识库总览 | 合集卡片 + 关键词检索 |
+| `/kb/:collection` | 合集页 | 该合集全部文档，按顺序列出 |
+| `/kb/:collection/:slug` | 文档详情 | Markdown 渲染 + 文内目录 + 上一篇/下一篇 |
 | `/cases` | 案例索引 | 全部实验案例 |
 | `/cases/:id` | 案例运行页 | 懒加载对应 demo 组件 |
 | `*` | 404 | 兜底页 |
 
 ## 预览
 
-| 工作台 | 知识库 |
+| 工作台 | 知识库总览 |
 | --- | --- |
 | ![工作台](docs/screenshots/home.png) | ![知识库](docs/screenshots/kb.png) |
 
-| 文档详情 | 案例列表 |
+| 合集页 | 文档详情 |
 | --- | --- |
-| ![文档详情](docs/screenshots/doc.png) | ![案例列表](docs/screenshots/cases.png) |
+| ![合集](docs/screenshots/collection.png) | ![文档](docs/screenshots/threejs.png) |
+
+| 案例列表 |
+| --- |
+| ![案例](docs/screenshots/cases.png) |
 
 ## 目录
 
 ```
 src/
-  app/                     装配层：入口、路由、布局、全局样式
-    router/index.ts        汇总各 feature 的 routes
-    layouts/AppShell.vue   侧栏 + 内容区
-    styles/                reset / tokens / vendor / utilities
-    views/                 跨模块组合出来的页面（Home、404）
-  shared/                  跨功能复用，禁止反向依赖 features
-    ui/                    MarkdownBody、EmptyState、ThemeToggle
-    utils/markdown.ts      零依赖 Markdown 渲染器
+  content/                    站点内容层：只有 Markdown 与元数据，不放代码
+    <collection>/
+      _meta.json              合集标题 / 摘要 / 排序
+      <order>-<slug>.md       一篇文档一个文件，文件名数字前缀即顺序
+  app/                        装配层：入口、路由、布局、全局样式
+    router/index.ts           汇总各 feature 的 routes
+    layouts/AppShell.vue      侧栏 + 内容区
+    styles/                   reset / tokens / vendor / utilities
+    views/                    跨模块组合出来的页面（Home、404）
+  shared/                     跨功能复用，禁止反向依赖 features
+    ui/                       MarkdownBody、EmptyState、ThemeToggle
+    utils/markdown.ts         零依赖 Markdown 渲染器
     composables/useTheme.ts
   features/
-    knowledge/             知识库：types / data / routes / views / components
-    cases/                 案例：registry / routes / views / components / demos
-      demos/reactivity/    每个案例一个自包含目录
+    knowledge/                知识库：读取 src/content
+      data/parse.ts           frontmatter / 标题 / 摘要 / 排序（纯函数）
+      data/collections.ts     glob 读取 → 组装合集
+      data/index.ts           对外 API
+      routes.ts               /kb、/kb/:collection、/kb/:collection/:slug
+      views/                  总览 / 合集 / 文档
+      components/             CollectionCard、KnowledgeToc
+    cases/                    案例：registry / routes / views / components / demos
+      demos/reactivity/       每个案例一个自包含目录
 ```
 
-依赖方向单向：`app → features → shared`。两个 feature 之间不允许互相 import，跨模块的组合放到 `app/views`。
+依赖方向单向：`app → features → shared`。两个 feature 之间不允许互相 import，跨模块的组合放到 `app/views`。`src/content` 是数据层，只被 feature 读取，不 import 任何代码。
+
+## 现有内容
+
+| 合集 | 目录 | 篇数 | 说明 |
+| --- | --- | --- | --- |
+| Three.js 核心概念 | `src/content/threejs/` | 15 | 一个概念一篇，从渲染循环到后处理 |
+| 个人笔记 | `src/content/notes/` | 1 | 这个知识库怎么用 |
+
+`skills/` 下的技能文档（例如 `skills/vue3-ts-vite-frontend/`）是给 agent 读的规范，**不参与站点构建，也不出现在知识库里**。规范会随项目演进，可以作为 reference 单独维护。
 
 ## 加一篇知识
 
-1. 在 `knowledge/` 下新建 `xxx.md`（或放进 `skills/**`，也会被收录）；
-2. 可选 frontmatter：
+1. 放进已有合集：在 `src/content/threejs/` 下新建 `15-postprocessing-advanced.md`；
+2. 或新建合集：建目录 `src/content/<collection>/`，加一个 `_meta.json`：
+
+```json
+{
+  "title": "合集显示名",
+  "summary": "一句话说明这个合集讲什么",
+  "order": 3
+}
+```
+
+3. frontmatter 可选，用于覆盖列表页的标题与摘要：
 
 ```md
 ---
 title: 标题
 description: 一句话摘要
+order: 15
 ---
 ```
 
-3. 刷新页面即可，无需改代码。分类来自所在目录：`knowledge/` → 「个人笔记」，`skills/<技能名>/` → 该技能名。
+4. 刷新页面即可，无需改代码。排序规则：`frontmatter.order` → 文件名数字前缀 → 标题。
 
 ## 加一个实验案例
 
@@ -95,4 +130,5 @@ description: 一句话摘要
 - 一个功能一个目录，Dialog 等小功能独立成文件；
 - 组件样式写在组件内的 `<style scoped>`，颜色/间距只用 token；
 - 文件 400 行警告、1000 行必须拆；
-- 副作用与清理成对出现，`scripts/check-frontend-rules.mjs` 会检查目录边界、命名、行数与未配对的副作用。
+- 副作用与清理成对出现，`scripts/check-frontend-rules.mjs` 会检查目录边界、命名、行数与未配对的副作用；
+- 站点内容只来自 `src/content/`，`skills/` 不进构建：`import`/`import.meta.glob` 越出 `src/` 会被 `architecture/import-outside-src`、`architecture/glob-outside-src` 拦下。

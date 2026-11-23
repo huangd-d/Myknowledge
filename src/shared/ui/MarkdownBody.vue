@@ -17,7 +17,9 @@ defineProps<{ html: string }>()
   font-size: 15px;
   line-height: 1.78;
   color: var(--color-text);
-  word-break: break-word;
+  /* 用 overflow-wrap 而不是 word-break：前者不参与 min-content 计算，
+     表格列宽才不会被压扁（"01" 被拆成两行） */
+  overflow-wrap: break-word;
 }
 
 .prose :deep(> :first-child) {
@@ -174,12 +176,12 @@ defineProps<{ html: string }>()
 
 .prose :deep(table) {
   min-width: 480px;
-  font-size: var(--font-size-sm);
+  font-size: 12.5px;
 }
 
 .prose :deep(th),
 .prose :deep(td) {
-  padding: 0.55em 0.9em;
+  padding: 0.5em 0.72em;
   text-align: left;
   vertical-align: top;
   border-bottom: 1px solid var(--color-border);

@@ -8,7 +8,13 @@ export const knowledgeRoutes: RouteRecordRaw[] = [
     meta: { title: '知识库' },
   },
   {
-    path: '/kb/:id',
+    path: '/kb/:collection',
+    name: 'knowledge-collection',
+    component: () => import('./views/CollectionView.vue'),
+    meta: { title: '知识库' },
+  },
+  {
+    path: '/kb/:collection/:slug',
     name: 'knowledge-doc',
     component: () => import('./views/KnowledgeDocView.vue'),
     meta: { title: '知识库' },

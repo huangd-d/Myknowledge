@@ -5,7 +5,7 @@ import ThemeToggle from '@/shared/ui/ThemeToggle.vue'
 
 const navItems = [
   { to: '/', label: '工作台', hint: '概览与入口' },
-  { to: '/kb', label: '知识库', hint: '规范文档与笔记' },
+  { to: '/kb', label: '知识库', hint: '合集与文档' },
   { to: '/cases', label: '实验案例', hint: '可交互示例' },
 ]
 

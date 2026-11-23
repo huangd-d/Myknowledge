@@ -7,7 +7,7 @@
         <div>
           <p class="howto__step-title">写一篇笔记</p>
           <p class="howto__step-desc">
-            在 <code>knowledge/</code> 下新建 <code>xxx.md</code>，可选 frontmatter
+            在 <code>src/content/&lt;合集&gt;/</code> 下新建 <code>xxx.md</code>，可选 frontmatter
             <code>title</code> / <code>description</code>，刷新即出现在知识库。
           </p>
         </div>
@@ -25,9 +25,10 @@
       <li class="howto__step">
         <span class="howto__index">3</span>
         <div>
-          <p class="howto__step-title">写规范本身也在这里</p>
+          <p class="howto__step-title">规范与内容分开</p>
           <p class="howto__step-desc">
-            <code>skills/vue3-ts-vite-frontend/</code> 是正在执行的规范，本项目的目录结构就是它的示例。
+            <code>skills/vue3-ts-vite-frontend/</code> 是给 agent 的工程规范，不参与站点构建；站点只读
+            <code>src/content/</code>。
           </p>
         </div>
       </li>

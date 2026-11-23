@@ -1,26 +1,32 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import EmptyState from '@/shared/ui/EmptyState.vue'
-import KnowledgeCard from '../components/KnowledgeCard.vue'
-import { knowledgeCategories, knowledgeDocs, knowledgeStats } from '../data'
-import type { KnowledgeCategory } from '../types'
+import CollectionCard from '../components/CollectionCard.vue'
+import { knowledgeCollections, knowledgeStats } from '../data'
+import type { KnowledgeCollection } from '../types'
 
 const keyword = ref('')
 
-const filtered = computed<KnowledgeCategory[]>(() => {
+const filtered = computed<KnowledgeCollection[]>(() => {
   const term = keyword.value.trim().toLowerCase()
-  if (!term) return knowledgeCategories
-  return knowledgeCategories
-    .map((category) => ({
-      ...category,
-      docs: category.docs.filter((doc) =>
-        `${doc.title} ${doc.summary} ${doc.categoryLabel} ${doc.body}`.toLowerCase().includes(term),
-      ),
-    }))
-    .filter((category) => category.docs.length > 0)
+  if (!term) return knowledgeCollections
+
+  return knowledgeCollections
+    .map((collection) => {
+      const docs = collection.docs.filter((doc) =>
+        `${doc.title} ${doc.summary} ${doc.body}`.toLowerCase().includes(term),
+      )
+      return {
+        ...collection,
+        docs,
+        docCount: docs.length,
+        readMinutes: docs.reduce((sum, doc) => sum + doc.readMinutes, 0),
+      }
+    })
+    .filter((collection) => collection.docCount > 0)
 })
 
-const hitCount = computed(() => filtered.value.reduce((sum, category) => sum + category.docs.length, 0))
+const hitCount = computed(() => filtered.value.reduce((sum, item) => sum + item.docCount, 0))
 </script>
 
 <template>
@@ -29,13 +35,13 @@ const hitCount = computed(() => filtered.value.reduce((sum, category) => sum + c
       <p class="kb__eyebrow">知识库</p>
       <h1 class="kb__title">把结论写下来，比记住它更可靠</h1>
       <p class="kb__lead">
-        仓库里的 Markdown 会被自动收录：<code>skills/**/*.md</code> 与
-        <code>knowledge/**/*.md</code>。新增一篇文档，刷新页面即可看到。
+        内容放在 <code>src/content/&lt;合集&gt;/</code> 下，一个合集一个目录，一篇概念一个文件。新增
+        <code>.md</code> 后刷新页面即可看到，不需要改代码。
       </p>
       <div class="kb__meta">
-        <span>{{ knowledgeStats.docCount }} 篇文档</span>
+        <span>{{ knowledgeStats.collectionCount }} 个合集</span>
         <span aria-hidden="true">·</span>
-        <span>{{ knowledgeStats.categoryCount }} 个分类</span>
+        <span>{{ knowledgeStats.docCount }} 篇文档</span>
         <span aria-hidden="true">·</span>
         <span>约 {{ knowledgeStats.totalReadMinutes }} 分钟读完</span>
       </div>
@@ -46,34 +52,23 @@ const hitCount = computed(() => filtered.value.reduce((sum, category) => sum + c
         v-model="keyword"
         type="search"
         class="kb__input"
-        placeholder="搜索标题、正文或分类…"
+        placeholder="搜索标题、正文或合集…"
         aria-label="搜索知识库"
       />
       <span class="kb__hit">{{ hitCount }} 条</span>
     </div>
 
-    <section v-for="category in filtered" :key="category.key" class="cat">
-      <header class="cat__head">
-        <h2 class="cat__title">{{ category.title }}</h2>
-        <p class="cat__summary">{{ category.summary }}</p>
-        <span class="cat__count">{{ category.docs.length }}</span>
-      </header>
-      <div class="cat__grid">
-        <KnowledgeCard v-for="doc in category.docs" :key="doc.id" :doc="doc" />
-      </div>
-    </section>
+    <div class="kb__grid">
+      <CollectionCard v-for="collection in filtered" :key="collection.key" :collection="collection" />
+    </div>
 
     <EmptyState
       v-if="filtered.length === 0"
-      title="没有匹配的文档"
-      :description="`没有找到包含「${keyword.trim()}」的内容，换个关键词试试。`"
+      title="没有匹配的内容"
+      :description="`没有找到包含「${keyword.trim()}」的文档，换个关键词试试。`"
     >
       <button type="button" class="kb__reset" @click="keyword = ''">清空搜索</button>
     </EmptyState>
-
-    <p v-if="knowledgeDocs.length === 0" class="kb__hint">
-      还没有任何文档：在 <code>knowledge/</code> 目录下新建一个 <code>.md</code> 文件即可。
-    </p>
   </div>
 </template>
 
@@ -81,7 +76,7 @@ const hitCount = computed(() => filtered.value.reduce((sum, category) => sum + c
 .kb {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
   max-width: var(--layout-content);
   margin: 0 auto;
 }
@@ -108,12 +103,11 @@ const hitCount = computed(() => filtered.value.reduce((sum, category) => sum + c
 }
 
 .kb__lead {
-  max-width: 62ch;
+  max-width: 66ch;
   color: var(--color-text-muted);
 }
 
-.kb__lead code,
-.kb__hint code {
+.kb__lead code {
   padding: 0.1em 0.35em;
   font-size: 0.88em;
   background: var(--color-code-bg);
@@ -123,6 +117,7 @@ const hitCount = computed(() => filtered.value.reduce((sum, category) => sum + c
 
 .kb__meta {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   font-size: var(--font-size-sm);
   color: var(--color-text-faint);
@@ -155,43 +150,9 @@ const hitCount = computed(() => filtered.value.reduce((sum, category) => sum + c
   color: var(--color-text-faint);
 }
 
-.cat {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.cat__head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  align-items: baseline;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.cat__title {
-  font-size: var(--font-size-lg);
-  font-weight: 650;
-}
-
-.cat__summary {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-}
-
-.cat__count {
-  padding: 0 var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-faint);
-  background: var(--color-surface-2);
-  border-radius: var(--radius-pill);
-}
-
-.cat__grid {
+.kb__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-3);
 }
 
@@ -202,10 +163,5 @@ const hitCount = computed(() => filtered.value.reduce((sum, category) => sum + c
   background: var(--color-accent-soft);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-}
-
-.kb__hint {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
 }
 </style>

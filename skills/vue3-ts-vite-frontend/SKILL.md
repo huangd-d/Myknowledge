@@ -12,6 +12,7 @@ description: Vue 3 + TypeScript + Vite 前端工程规范与代码审查。用�
 - 写样式、抽取主题变量、覆盖 UI 库样式
 - Code Review：判断组件是否臃肿、是否有内存泄漏
 - 配置 lint / format / 类型检查 / CI 门禁
+- 整理仓库根目录：分不清哪些文件该进构建、哪些只是给 agent 看的
 
 ## 核心思想（后面所有规则都是它的推论）
 
@@ -20,9 +21,10 @@ description: Vue 3 + TypeScript + Vite 前端工程规范与代码审查。用�
 - 一个文件只有一个"变更原因"：改需求时只应该改一个文件，改一个文件时只应该因为一个原因。
 - **目录回答"属于哪个功能"，文件名回答"这是什么"。** 看路径就能知道该不该在这里。
 - **副作用必须与清理成对出现，并且写在一起。** 一个 `setInterval` 距离它对应的 `clearInterval` 超过 20 行，迟早会漏。
+- **agent 资产、项目代码、项目内容是三份不同的东西。** 混在一起时最先坏掉的是可发布性：你会开始依赖一个本来不该进构建的目录。
 - **规范必须能被机器检查，否则三个月后一定腐化。** 因此所有硬阈值都落成 `scripts/check-frontend-rules.mjs`。
 
-## 五条硬规则
+## 六条硬规则
 
 ### R1 功能垂直切片：一个功能一个目录，跨功能只走 `shared/`
 
@@ -100,6 +102,25 @@ src/features/<feature>/
 
 审查方法：全局搜 `addEventListener|setInterval|setTimeout|new .*Observer|new WebSocket|watch\(|onMounted`，逐个回答"谁在什么时候清理它"。没有答案就是泄漏。
 
+### R6 三类资产分家：agent 资产 / 项目代码 / 项目内容
+
+**判定标准**：这个文件会被构建吗？会被产品用户看到吗？两个答案都是"不会"，它属于 agent 工具链，不属于项目。
+
+| 圈层 | 典型位置 | 谁读它 | 能被 app 代码引用 |
+| --- | --- | --- | --- |
+| agent 资产 | `skills/`、`.claude/`、`.cursor/`、`AGENTS.md`、`CLAUDE.md`、`prompts/` | 大模型、编辑器 | **绝不** |
+| 项目代码 | `src/**` | 浏览器 | 可以 |
+| 项目内容 | `src/content/`、`src/assets/`、`public/` | 站点运行时 | 由 feature 读取 |
+| 构建脚本 | `scripts/`、`*.config.ts` | Node | 只给构建期 |
+
+- **app 代码只能读 `src/` 内的文件。** 任何 `import` 或 `import.meta.glob('../../../skills/**/*.md')` 越出 `src/` 都是边界破损，规则脚本直接报错。这不是洁癖：越界引用会让构建产物取决于一个"随时可能被清理"的目录。
+- **内容进 `src/content/<合集>/`**：一个合集一个目录 + `_meta.json`，feature 通过 glob 读。不要放在仓库根目录让代码跨层去捞。
+- **改 agent 资产不应该影响线上，改内容不应该影响 agent 行为。** 耦合的典型症状：改 `skills/` 里一条规范，线上页面跟着变；删掉 skills 目录，构建挂了。
+- 同一份文本既要给 agent 读又要上站 → **单一来源 + 构建期复制**（npm script 或 vite 插件生成到 `src/content/`），禁止双向引用。
+- 仓库根目录只放：源码、配置、脚本、`README`/`CHANGELOG`。**不放"内容库"。**
+
+为什么这条比前面五条更容易破：agent 资产大多也是 Markdown，而 Markdown 恰好也是内容，目录上看起来"都是文档"，一不留神就被 glob 进去。判断依据不是文件类型，而是**它会不会被发布**。
+
 ## 工具链事实（先纠正一个常见误解）
 
 `oxlint` 是 **linter**，不负责格式化；格式化要用 **`oxfmt`**（Prettier 的替代者）。两者边界：
@@ -127,6 +148,12 @@ src/features/<feature>/
 4. 检查拆分后的接口面：props/emits 是否还在膨胀，是否该改成 slot 或 provide/inject。
 5. 检查是否有"顺手加的第二件事"（埋点、格式化、权限判断、路由跳转）。
 
+### 新增内容或工具目录
+
+1. 先问"它会被发布吗"：会 → `src/content/`；不会 → `skills/`、`docs/` 或仓库外的个人目录。
+2. 内容合集配一个 `_meta.json`（标题/摘要/排序），不要把合集元信息写成代码常量。
+3. 跑 `check:rules`，确认没有 `import-outside-src` / `glob-outside-src` 报错。
+
 ## 提交前
 
 ```bash
@@ -144,7 +171,7 @@ pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:rules && pnpm tes
 | `references/data-and-state.md` | 接口层、composable、Pinia、请求竞态、三态、类型契约 |
 | `references/memory-and-performance.md` | 泄漏清单逐条代码、性能清单、审查流程与结论模板 |
 | `references/quality-gates.md` | oxlint/oxfmt/tsc/vitest 配置、CI、lint-staged、例外机制、落地路线 |
-| `scripts/check-frontend-rules.mjs` | 零依赖检查脚本：行数、命名、目录边界、跨功能引用、scoped 样式、泄漏启发式 |
+| `scripts/check-frontend-rules.mjs` | 零依赖检查脚本：行数、命名、目录边界、跨功能引用、跨 `src` 越界引用、scoped 样式、泄漏启发式 |
 
 ## 安装与使用
 

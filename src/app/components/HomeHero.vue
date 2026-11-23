@@ -24,7 +24,7 @@ import { knowledgeStats } from '@/features/knowledge/data'
         <span class="entry__body">
           <span class="entry__title">知识库</span>
           <span class="entry__desc">
-            {{ knowledgeStats.categoryCount }} 个分类，{{ knowledgeStats.docCount }} 篇文档，支持关键词检索
+            {{ knowledgeStats.collectionCount }} 个合集，{{ knowledgeStats.docCount }} 篇文档，支持关键词检索
           </span>
         </span>
         <span class="entry__arrow" aria-hidden="true">→</span>

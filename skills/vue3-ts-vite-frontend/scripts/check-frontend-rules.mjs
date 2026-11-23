@@ -82,6 +82,18 @@ function resolveSpecifier(fromFile, specifier) {
   return null
 }
 
+/**
+ * import.meta.glob 的路径语义：
+ *   './x'、'../x' 相对当前文件；'@/x' 相对 src；'/x' 相对项目根（SRC 的上一级）
+ */
+function resolveGlobPattern(fromFile, pattern) {
+  const clean = pattern.split('?')[0]
+  if (clean.startsWith('@/')) return path.join(SRC, clean.slice(2))
+  if (clean.startsWith('.')) return path.resolve(path.dirname(fromFile), clean)
+  if (clean.startsWith('/')) return path.join(path.dirname(SRC), clean)
+  return null
+}
+
 function exemptionsOf(content) {
   const head = content.split(/\r?\n/).slice(0, 20).join('\n')
   const match = head.match(/frontend-rules-ignore:\s*([^\n]+)/)
@@ -177,6 +189,12 @@ async function checkFile(file) {
   for (const { spec, line } of specs) {
     const resolved = resolveSpecifier(file, spec)
     if (!resolved) continue
+
+    if (path.relative(SRC, resolved).startsWith('..') && !ignore('architecture/import-outside-src')) {
+      report('error', 'architecture/import-outside-src', rel, line, `import 越出 src/：${spec}（agent 资产与项目内容必须分家）`)
+      continue
+    }
+
     const target = ownerOf(resolved)
     if (!mine || !target) continue
 
@@ -194,6 +212,34 @@ async function checkFile(file) {
       if (!ignore('architecture/layer-violation')) {
         report('error', 'architecture/layer-violation', rel, line, `features 不得引用 app：${spec}`)
       }
+    }
+  }
+
+  // ---- import.meta.glob 越界（把 agent 资产卷进构建的典型写法） ----
+  const GLOB_CALL = /import\.meta\.glob\s*\(\s*(?:'([^']*)'|"([^"]*)"|\[([^\]]*)\])/g
+  let globMatch
+  while ((globMatch = GLOB_CALL.exec(content)) !== null) {
+    const single = globMatch[1] ?? globMatch[2]
+    const patterns =
+      single !== undefined
+        ? [single]
+        : [...(globMatch[3] ?? '').matchAll(/['"]([^'"]+)['"]/g)].map((match) => match[1] ?? '')
+    const line = content.slice(0, globMatch.index).split(/\r?\n/).length
+
+    for (const rawPattern of patterns) {
+      const pattern = rawPattern.replace(/^!/, '')
+      if (!pattern) continue
+      const resolved = resolveGlobPattern(file, pattern)
+      if (!resolved) continue
+      if (!path.relative(SRC, resolved).startsWith('..')) continue
+      if (ignore('architecture/glob-outside-src')) continue
+      report(
+        'error',
+        'architecture/glob-outside-src',
+        rel,
+        line,
+        `glob 模式越出 src/：${rawPattern}（不要从根目录捞 agent 资产）`,
+      )
     }
   }
 

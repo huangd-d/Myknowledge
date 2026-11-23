@@ -3,7 +3,7 @@ import { RouterLink } from 'vue-router'
 import HomeHero from '../components/HomeHero.vue'
 import HomeHowTo from '../components/HomeHowTo.vue'
 import { caseList } from '@/features/cases/registry'
-import { knowledgeDocs } from '@/features/knowledge/data'
+import { documentPath, knowledgeDocs } from '@/features/knowledge/data'
 
 const recentDocs = knowledgeDocs.slice(0, 4)
 const featuredCases = caseList.slice(0, 3)
@@ -21,9 +21,9 @@ const featuredCases = caseList.slice(0, 3)
         </header>
         <ul class="list">
           <li v-for="doc in recentDocs" :key="doc.id">
-            <RouterLink :to="`/kb/${doc.id}`" class="list__row">
+            <RouterLink :to="documentPath(doc)" class="list__row">
               <span class="list__title">{{ doc.title }}</span>
-              <span class="list__meta">{{ doc.categoryLabel }} · {{ doc.readMinutes }} 分钟</span>
+              <span class="list__meta">{{ doc.collectionTitle }} · {{ doc.readMinutes }} 分钟</span>
             </RouterLink>
           </li>
         </ul>
