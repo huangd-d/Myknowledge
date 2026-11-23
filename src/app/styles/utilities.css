@@ -1,0 +1,27 @@
+/* 少量工具类：只放跨组件复用的原子能力，业务样式一律写在组件内 */
+.u-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.u-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.u-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.u-muted {
+  color: var(--color-text-muted);
+}
+
+.u-mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
