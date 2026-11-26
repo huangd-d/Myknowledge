@@ -302,6 +302,7 @@ node scripts/check-frontend-rules.mjs src --allow-barrels
 | `architecture/layer-violation` | `shared` 不得引用 `features`/`app`；`features` 不得引用 `app` |
 | `architecture/import-outside-src` | 相对 import 解析后落在 `src/` 之外（例如 `../../../../skills/x.md`） |
 | `architecture/glob-outside-src` | `import.meta.glob()` 的模式落到 `src/` 之外（把 agent 资产卷进构建） |
+| `architecture/generic-directory` | `features/*/utils|common|helpers|misc|lib` 下文件 ≥ 4 个（万能桶，内聚性差） |
 | `architecture/barrel-file` | `features/*/index.ts` 报错（可用参数关闭） |
 | `component/single-component` | 一个 `.vue` 里出现多个 `<template>` |
 | `style/not-scoped` | 写了 `<style>` 但没 `scoped` |
@@ -344,3 +345,36 @@ node scripts/check-frontend-rules.mjs src --allow-barrels
 | 之后 | 存量"触碰即改"，每季度提高一档阈值 | 逐步收敛，不搞大重构 |
 
 规范落地的真正关键不是文档写得多细，而是两个数字：**新 PR 是否被卡住**、**豁免清单是否在变短**。
+
+## 12. PR 模板：把设计问题问在提交时
+
+目录规范和结构问题几乎不会在 CI 里暴露，只能靠提交时的自检。把清单放进 `.github/pull_request_template.md`，比放进 wiki 有效得多：
+
+```md
+## 这个 PR 做了什么
+
+## 新增目录 / 文件
+- [ ] 过了"建目录三问"：低耦合、高内聚、可读（一句话说明为什么需要这个目录）
+- [ ] 没把文件放进 `utils/`、`common/`、`misc/` 这类万能桶
+- [ ] 没有跨 feature import（`check:rules` 通过）
+- [ ] Dialog / 抽屉 / 表单区块独立成文件，没有塞进页面
+
+## 体积
+- [ ] 没有文件超过 400 行（1000 行必须拆）
+
+## 副作用
+- [ ] 新增的监听 / 定时器 / 观察器 / 请求都有对应清理
+
+## 资产边界
+- [ ] `src` 里没有 import 或 glob 到 `skills/`、`docs/` 等站外目录
+
+## 验证
+- [ ] `pnpm verify` 通过
+- [ ] 涉及样式：颜色 / 间距只用 token，没有硬编码色值
+```
+
+三条使用建议：
+
+- 清单**只留能被回答"是/否"的项**，不要写"代码质量良好"这种没法验证的话；
+- 新增目录的那条要求**写一句理由**，理由写不出来通常就是不该建；
+- 每季度删掉一条已经形成肌肉记忆的项，保持清单在 10 条以内，否则没人看。

@@ -30,6 +30,9 @@ const LIMITS = {
 }
 
 const DIR_LIMIT = { warn: 15, error: 25 }
+/** 功能目录下的万能桶：文件一多就说明边界没划清 */
+const GENERIC_DIR = /(?:^|\/)features\/[^/]+\/(?:utils|common|helpers|misc|lib|shared)$/
+const GENERIC_DIR_MIN_FILES = 4
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.nuxt', '.output', '.turbo'])
 const CODE_FILE = /\.(vue|ts|tsx|js|mjs|cjs)$/i
 
@@ -327,8 +330,17 @@ async function main() {
     byDir.set(dir, (byDir.get(dir) ?? 0) + 1)
   }
   for (const [dir, count] of byDir) {
-    if (count < DIR_LIMIT.warn) continue
     const rel = relPath(dir)
+    if (GENERIC_DIR.test(rel) && count >= GENERIC_DIR_MIN_FILES) {
+      report(
+        'warn',
+        'architecture/generic-directory',
+        rel,
+        1,
+        `宽泛目录「${path.basename(dir)}」下有 ${count} 个文件，按领域拆（format/ storage/ request/）或放回功能目录`,
+      )
+    }
+    if (count < DIR_LIMIT.warn) continue
     const level = count >= DIR_LIMIT.error ? 'error' : 'warn'
     report(level, 'size/directory', rel, 1, `目录下 ${count} 个文件，说明职责可能过杂，按功能域再拆一层`)
   }
